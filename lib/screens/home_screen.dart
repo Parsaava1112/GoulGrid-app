@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 
 import '../models/task.dart';
 import '../services/task_provider.dart';
-import '../services/theme_provider.dart';
 import 'add_edit_task_screen.dart';
 import 'settings_screen.dart';
 import 'statistics_screen.dart';
@@ -152,7 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ... سایر ویجت‌ها مشابه قبلی، اما کارت خلاصه شامل سطح و استریک هم هست
 class _SummaryCard extends StatelessWidget {
   final TaskProvider provider;
 
@@ -178,7 +176,9 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text('امتیاز امروز', style: Theme.of(context).textTheme.titleMedium),
                 Text('${provider.todayPoints} امتیاز',
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+                    style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.primary)),
               ],
             ),
@@ -204,6 +204,109 @@ class _SummaryCard extends StatelessWidget {
               const Chip(label: Text('بونوس ۱۰۰ امتیازی دریافت شد 🎉')),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _TaskTile extends StatelessWidget {
+  final Task task;
+  final bool done;
+  final VoidCallback onToggle;
+
+  const _TaskTile({
+    required this.task,
+    required this.done,
+    required this.onToggle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ListTile(
+        leading: Checkbox(
+          value: done,
+          onChanged: (_) => onToggle(),
+        ),
+        title: Text(
+          task.title,
+          style: TextStyle(
+            decoration: done ? TextDecoration.lineThrough : null,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              children: [
+                Chip(
+                  label: Text(task.category),
+                  visualDensity: VisualDensity.compact,
+                ),
+                Chip(
+                  label: Text('⏰ ${task.reminderTime}'),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+            if (task.description.isNotEmpty)
+              Text(
+                task.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+          ],
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'edit') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AddEditTaskScreen(task: task),
+                ),
+              );
+            } else if (value == 'delete') {
+              context.read<TaskProvider>().deleteTask(task.id!);
+            }
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'edit', child: Text('ویرایش')),
+            PopupMenuItem(value: 'delete', child: Text('حذف')),
+          ],
+        ),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AddEditTaskScreen(task: task)),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.checklist,
+            size: 64,
+            color: Theme.of(context).colorScheme.outline,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'هنوز تسکی اضافه نشده است.',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
       ),
     );
   }
