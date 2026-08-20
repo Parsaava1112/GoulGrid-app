@@ -23,9 +23,9 @@ class StatisticsScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              _buildBarChart(data),
+              _buildBarChart(context, data),
               const SizedBox(height: 24),
-              _buildHeatmap(),
+              _buildHeatmap(context),
               const SizedBox(height: 24),
               _buildBadgeSummary(),
             ],
@@ -51,7 +51,7 @@ class StatisticsScreen extends StatelessWidget {
     return result;
   }
 
-  Widget _buildBarChart(List<Map<String, dynamic>> data) {
+  Widget _buildBarChart(BuildContext context, List<Map<String, dynamic>> data) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -110,8 +110,7 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeatmap() {
-    // یک شبکه ۷ ستونه (روزهای هفته جاری)
+  Widget _buildHeatmap(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
