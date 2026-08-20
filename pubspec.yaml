@@ -1,5 +1,5 @@
 name: goulgrid
-description: A professional habit and task manager.
+description: A habit and task manager with gamification.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -8,6 +8,8 @@ environment:
 
 dependencies:
   flutter:
+    sdk: flutter
+  flutter_localizations:
     sdk: flutter
   sqflite: ^2.3.0
   path: ^1.8.3
