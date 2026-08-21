@@ -19,10 +19,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      # فقط در صورتی که پوشه assets/icon و تصویر آیکون وجود داشته باشد
       - name: Generate launcher icons
         run: dart run flutter_launcher_icons
-        continue-on-error: true   # اگر آیکون آماده نبود، بیلد متوقف نشود
+        continue-on-error: true   # اگر آیکون موجود نبود، بیلد متوقف نشود
 
       - name: Build APK
         run: flutter build apk --release
