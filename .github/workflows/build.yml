@@ -19,10 +19,6 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Generate launcher icons
-        run: dart run flutter_launcher_icons
-        continue-on-error: true   # اگر آیکون موجود نبود، بیلد متوقف نشود
-
       - name: Build APK
         run: flutter build apk --release
 
