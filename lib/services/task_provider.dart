@@ -55,6 +55,8 @@ class TaskProvider extends ChangeNotifier {
 
       await _rescheduleAll();
       await _checkAndUnlockBadges();
+    } catch (e) {
+      debugPrint('Error loading data: $e');
     } finally {
       _loading = false;
       notifyListeners();
@@ -63,31 +65,60 @@ class TaskProvider extends ChangeNotifier {
 
   Future<void> _rescheduleAll() async {
     for (final task in _tasks) {
-      await NotificationService.instance.scheduleTaskNotification(task);
+      try {
+        await NotificationService.instance.scheduleTaskNotification(task);
+      } catch (e) {
+        debugPrint('Error scheduling notification for task ${task.id}: $e');
+      }
     }
   }
 
   Future<void> addTask(Task task) async {
-    final id = await _db.insertTask(task);
-    final newTask = task.copyWith(id: id);
-    _tasks.add(newTask);
-    await NotificationService.instance.scheduleTaskNotification(newTask);
-    notifyListeners();
+    try {
+      final id = await _db.insertTask(task);
+      final newTask = task.copyWith(id: id);
+      _tasks.add(newTask);
+      notifyListeners();
+
+      // زمان‌بندی اعلان - خطای آن ذخیره‌سازی را خراب نمی‌کند
+      try {
+        await NotificationService.instance.scheduleTaskNotification(newTask);
+      } catch (e) {
+        debugPrint('Error scheduling notification for task $id: $e');
+      }
+    } catch (e) {
+      debugPrint('Error adding task: $e');
+      rethrow; // اجازه می‌دهد UI خطا را نشان دهد
+    }
   }
 
   Future<void> updateTask(Task task) async {
-    await _db.updateTask(task);
-    final index = _tasks.indexWhere((t) => t.id == task.id);
-    if (index != -1) _tasks[index] = task;
-    await NotificationService.instance.scheduleTaskNotification(task);
-    notifyListeners();
+    try {
+      await _db.updateTask(task);
+      final index = _tasks.indexWhere((t) => t.id == task.id);
+      if (index != -1) _tasks[index] = task;
+      notifyListeners();
+
+      try {
+        await NotificationService.instance.scheduleTaskNotification(task);
+      } catch (e) {
+        debugPrint('Error rescheduling notification for task ${task.id}: $e');
+      }
+    } catch (e) {
+      debugPrint('Error updating task: $e');
+      rethrow;
+    }
   }
 
   Future<void> deleteTask(int id) async {
     await _db.deleteTask(id);
     _tasks.removeWhere((t) => t.id == id);
     _completedToday.remove(id);
-    await NotificationService.instance.cancelTaskNotification(id);
+    try {
+      await NotificationService.instance.cancelTaskNotification(id);
+    } catch (e) {
+      debugPrint('Error canceling notification for task $id: $e');
+    }
     notifyListeners();
   }
 
@@ -110,7 +141,6 @@ class TaskProvider extends ChangeNotifier {
     _todayPoints += 50;
     _totalPoints += 50;
 
-    // بررسی تکمیل همه و بونوس
     final allDone = _tasks.every((task) => _completedToday.contains(task.id));
     if (allDone && !_bonusEarnedToday && _tasks.isNotEmpty) {
       await _db.addPoints(date, 100, bonus: true);
@@ -119,7 +149,6 @@ class TaskProvider extends ChangeNotifier {
       _bonusEarnedToday = true;
     }
 
-    // به‌روزرسانی استریک
     await _db.updateStreak(date, _completedToday.length, _tasks.length);
     final streakInfo = await _db.getStreakInfo();
     _currentStreak = streakInfo['current'] as int;
@@ -131,26 +160,15 @@ class TaskProvider extends ChangeNotifier {
   }
 
   Future<void> _checkAndUnlockBadges() async {
-    // نشان اول
-    if (_totalPoints > 0) {
-      await _db.unlockBadge('first_task');
+    try {
+      if (_totalPoints > 0) await _db.unlockBadge('first_task');
+      if (_bestStreak >= 3) await _db.unlockBadge('streak_3');
+      if (_bestStreak >= 7) await _db.unlockBadge('streak_7');
+      if (_totalPoints >= 500) await _db.unlockBadge('points_500');
+      if (_totalPoints >= 1000) await _db.unlockBadge('points_1000');
+      _unlockedBadges = await _db.getUnlockedBadgesCount();
+    } catch (e) {
+      debugPrint('Error unlocking badges: $e');
     }
-    // استریک ۳
-    if (_bestStreak >= 3) {
-      await _db.unlockBadge('streak_3');
-    }
-    // استریک ۷
-    if (_bestStreak >= 7) {
-      await _db.unlockBadge('streak_7');
-    }
-    // امتیاز ۵۰۰
-    if (_totalPoints >= 500) {
-      await _db.unlockBadge('points_500');
-    }
-    // امتیاز ۱۰۰۰
-    if (_totalPoints >= 1000) {
-      await _db.unlockBadge('points_1000');
-    }
-    _unlockedBadges = await _db.getUnlockedBadgesCount();
   }
 }
