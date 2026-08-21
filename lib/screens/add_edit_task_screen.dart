@@ -22,6 +22,8 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   late final TextEditingController _timeController;
   late final TextEditingController _verificationController;
 
+  bool _saving = false; // جلوگیری از کلیک دوباره
+
   bool get isEditing => widget.task != null;
 
   @override
@@ -62,35 +64,62 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_saving) return; // جلوگیری از کلیک همزمان
 
-    final now = DateTime.now();
-    final dateStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    final task = Task(
-      id: widget.task?.id,
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      category: _categoryController.text.trim().isEmpty
-          ? 'عمومی'
-          : _categoryController.text.trim(),
-      reminderTime: _timeController.text.trim(),
-      verificationQuestion: _verificationController.text.trim().isEmpty
-          ? 'آیا این کار را واقعاً انجام دادید؟'
-          : _verificationController.text.trim(),
-      createdAt: widget.task?.createdAt ?? dateStr,
-    );
-
-    final provider = context.read<TaskProvider>();
-    if (isEditing) {
-      await provider.updateTask(task);
-    } else {
-      await provider.addTask(task);
+    if (!_formKey.currentState!.validate()) {
+      // نمایش پیام خطا
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لطفاً خطاهای فرم را برطرف کنید.')),
+      );
+      return;
     }
 
-    if (mounted) {
-      Navigator.pop(context);
+    setState(() => _saving = true);
+
+    try {
+      final now = DateTime.now();
+      final dateStr =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+
+      final task = Task(
+        id: widget.task?.id,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        category: _categoryController.text.trim().isEmpty
+            ? 'عمومی'
+            : _categoryController.text.trim(),
+        reminderTime: _timeController.text.trim(),
+        verificationQuestion: _verificationController.text.trim().isEmpty
+            ? 'آیا این کار را واقعاً انجام دادید؟'
+            : _verificationController.text.trim(),
+        createdAt: widget.task?.createdAt ?? dateStr,
+      );
+
+      final provider = context.read<TaskProvider>();
+      if (isEditing) {
+        await provider.updateTask(task);
+      } else {
+        await provider.addTask(task);
+      }
+
+      if (mounted) {
+        Navigator.pop(context);
+        // نمایش پیام موفقیت
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEditing ? 'تسک ویرایش شد.' : 'تسک اضافه شد.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving task: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('خطا در ذخیره‌سازی. لطفاً دوباره تلاش کنید.')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
   }
 
@@ -161,8 +190,14 @@ class _AddEditTaskScreenState extends State<AddEditTaskScreen> {
             ),
             const SizedBox(height: 24),
             FilledButton.icon(
-              onPressed: _save,
-              icon: const Icon(Icons.save),
+              onPressed: _saving ? null : _save, // غیرفعال هنگام ذخیره
+              icon: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
               label: Text(isEditing ? 'ذخیره تغییرات' : 'افزودن تسک'),
             ),
           ],
