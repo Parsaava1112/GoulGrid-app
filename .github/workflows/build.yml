@@ -10,14 +10,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.0'   # 👈 نسخهٔ جدید
+          flutter-version: '3.27.0'
           channel: 'stable'
-      - run: flutter pub get
-      - run: flutter create --project-name sci_flow .
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # فقط در صورتی که پوشه assets/icon و تصویر آیکون وجود داشته باشد
+      - name: Generate launcher icons
+        run: dart run flutter_launcher_icons
+        continue-on-error: true   # اگر آیکون آماده نبود، بیلد متوقف نشود
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
