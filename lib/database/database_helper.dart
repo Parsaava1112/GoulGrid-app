@@ -86,7 +86,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // بذر نشان‌ها
     await _seedBadges(db);
   }
 
@@ -137,23 +136,119 @@ class DatabaseHelper {
     }
   }
 
-  // ----- Task CRUD (همان قبلی) -----
-  Future<int> insertTask(Task task) async { ... }
-  Future<int> updateTask(Task task) async { ... }
-  Future<int> deleteTask(int id) async { ... }
-  Future<List<Task>> getTasks({bool activeOnly = true}) async { ... }
-  Future<Task?> getTask(int id) async { ... }
+  // ----- Task CRUD -----
+  Future<int> insertTask(Task task) async {
+    final db = await database;
+    return db.insert('tasks', task.toMap());
+  }
+
+  Future<int> updateTask(Task task) async {
+    final db = await database;
+    return db.update(
+      'tasks',
+      task.toMap(),
+      where: 'id = ?',
+      whereArgs: [task.id],
+    );
+  }
+
+  Future<int> deleteTask(int id) async {
+    final db = await database;
+    return db.delete('tasks', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<Task>> getTasks({bool activeOnly = true}) async {
+    final db = await database;
+    final rows = activeOnly
+        ? await db.query('tasks', where: 'is_active = ?', whereArgs: [1])
+        : await db.query('tasks');
+    return rows.map((row) => Task.fromMap(row)).toList();
+  }
+
+  Future<Task?> getTask(int id) async {
+    final db = await database;
+    final rows = await db.query('tasks', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return null;
+    return Task.fromMap(rows.first);
+  }
 
   // ----- Completions -----
-  Future<int> insertCompletion(Completion completion) async { ... }
-  Future<List<Completion>> getCompletionsForDate(String date) async { ... }
-  Future<bool> isTaskCompletedOnDate(int taskId, String date) async { ... }
-  Future<int> countCompletionsForDate(String date) async { ... }
+  Future<int> insertCompletion(Completion completion) async {
+    final db = await database;
+    return db.insert('completions', completion.toMap());
+  }
+
+  Future<List<Completion>> getCompletionsForDate(String date) async {
+    final db = await database;
+    final rows = await db.query('completions', where: 'date = ?', whereArgs: [date]);
+    return rows.map((row) => Completion.fromMap(row)).toList();
+  }
+
+  Future<bool> isTaskCompletedOnDate(int taskId, String date) async {
+    final db = await database;
+    final rows = await db.query(
+      'completions',
+      where: 'task_id = ? AND date = ?',
+      whereArgs: [taskId, date],
+    );
+    return rows.isNotEmpty;
+  }
+
+  Future<int> countCompletionsForDate(String date) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM completions WHERE date = ?',
+      [date],
+    );
+    return (result.first['count'] as int?) ?? 0;
+  }
 
   // ----- Daily Summary -----
-  Future<DailySummary?> getSummary(String date) async { ... }
-  Future<void> addPoints(String date, int points, {bool bonus = false}) async { ... }
-  Future<int> getTotalPoints() async { ... }
+  Future<DailySummary?> getSummary(String date) async {
+    final db = await database;
+    final rows = await db.query('daily_summary', where: 'date = ?', whereArgs: [date]);
+    if (rows.isEmpty) return null;
+    final row = rows.first;
+    return DailySummary(
+      date: row['date'] as String,
+      totalPoints: row['total_points'] as int? ?? 0,
+      bonusEarned: (row['bonus_earned'] as int? ?? 0) == 1,
+    );
+  }
+
+  Future<void> addPoints(String date, int points, {bool bonus = false}) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final rows = await txn.query('daily_summary', where: 'date = ?', whereArgs: [date]);
+      if (rows.isEmpty) {
+        await txn.insert('daily_summary', {
+          'date': date,
+          'total_points': points,
+          'bonus_earned': bonus ? 1 : 0,
+        });
+      } else {
+        final current = rows.first['total_points'] as int? ?? 0;
+        final alreadyBonus = (rows.first['bonus_earned'] as int? ?? 0) == 1;
+        await txn.update(
+          'daily_summary',
+          {
+            'total_points': current + points,
+            'bonus_earned': (alreadyBonus || bonus) ? 1 : 0,
+          },
+          where: 'date = ?',
+          whereArgs: [date],
+        );
+      }
+    });
+  }
+
+  Future<int> getTotalPoints() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COALESCE(SUM(total_points), 0) as total FROM daily_summary',
+    );
+    return (result.first['total'] as int?) ?? 0;
+  }
 
   // ----- Streaks -----
   Future<void> updateStreak(String date, int completedCount, int totalTasks) async {
@@ -173,7 +268,6 @@ class DatabaseHelper {
     int bestStreak = 0;
     int tempStreak = 0;
 
-    // محاسبه بهترین استریک
     for (final row in rows) {
       if ((row['all_completed'] as int? ?? 0) == 1) {
         tempStreak++;
@@ -183,7 +277,6 @@ class DatabaseHelper {
       }
     }
 
-    // استریک فعلی (از امروز به عقب)
     final today = DateTime.now();
     final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     final todayRow = rows.where((r) => r['date'] == todayStr).toList();

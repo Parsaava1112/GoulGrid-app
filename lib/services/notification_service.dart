@@ -24,7 +24,6 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: _onTapBackgroundNotification,
     );
 
-    // ساخت کانال‌ها
     const androidChannel = AndroidNotificationChannel(
       'daily_reminder',
       'یادآوری روزانه',
@@ -36,7 +35,6 @@ class NotificationService {
     await androidPlugin?.createNotificationChannel(androidChannel);
   }
 
-  // اکشن‌ها
   static const String _actionMarkDone = 'MARK_DONE';
 
   Future<void> scheduleTaskNotification(Task task) async {
@@ -53,7 +51,6 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    // اعلان تطبیقی: اگر ۳ روز پیاپی انجام نشده باشد، متن جدی‌تر
     final db = DatabaseHelper.instance;
     final missedDays = await _countMissedDays(task.id!);
     String title = 'یادآوری تسک';
@@ -65,7 +62,6 @@ class NotificationService {
       body = '${task.title} – دیروز انجام نشد';
     }
 
-    // دکمه‌های اکشن
     const androidDetails = AndroidNotificationDetails(
       'daily_reminder',
       'یادآوری روزانه',
@@ -93,6 +89,8 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
       matchDateTimeComponents: DateTimeComponents.time,
       payload: 'task_${task.id}',
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
     );
   }
 
@@ -121,10 +119,7 @@ class NotificationService {
 
   static Future<void> _handleAction(String? payload, String? actionId) async {
     if (actionId == _actionMarkDone && payload != null && payload.startsWith('task_')) {
-      final taskId = int.parse(payload.substring(5));
-      // اینجا می‌توانید مستقیماً تسک را کامل کنید یا برنامه را باز کنید
-      // برای سادگی، فقط برنامه باز می‌شود و کاربر تأیید را انجام می‌دهد
-      // اما می‌توانید منطق کامل شدن را در اینجا پیاده کنید
+      // می‌توانید اینجا منطق کامل شدن را پیاده کنید یا برنامه را باز کنید
     }
   }
 
