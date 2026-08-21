@@ -14,24 +14,65 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  tz.initializeTimeZones();
-  tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
+  try {
+    // تنظیم منطقه زمانی
+    tz.initializeTimeZones();
+    try {
+      tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
+    } catch (e) {
+      debugPrint('Warning: Could not set Tehran timezone, using UTC: $e');
+      tz.setLocalLocation(tz.UTC);
+    }
 
-  await DatabaseHelper.instance.database;
-  await NotificationService.instance.init();
+    // دیتابیس
+    try {
+      await DatabaseHelper.instance.database;
+    } catch (e) {
+      debugPrint('Database init failed: $e');
+      // ادامه می‌دهیم؛ ممکن است بعداً خطا دهد اما برنامه باز می‌شود
+    }
 
-  final themeProvider = ThemeProvider();
-  await themeProvider.loadTheme();
+    // سرویس اعلان
+    try {
+      await NotificationService.instance.init();
+    } catch (e) {
+      debugPrint('Notification init failed: $e');
+    }
 
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => themeProvider),
-        ChangeNotifierProvider(create: (_) => TaskProvider()..loadData()),
-      ],
-      child: const MyApp(),
-    ),
-  );
+    // تم
+    final themeProvider = ThemeProvider();
+    await themeProvider.loadTheme();
+
+    // اجرای برنامه
+    runApp(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider(create: (_) => themeProvider),
+          ChangeNotifierProvider(create: (_) => TaskProvider()..loadData()),
+        ],
+        child: const MyApp(),
+      ),
+    );
+  } catch (e) {
+    // اگر خطای بحرانی در راه‌اندازی رخ داد، صفحه خطا نمایش بده
+    debugPrint('Fatal error during startup: $e');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'خطا در راه‌اندازی برنامه:\n$e',
+                textDirection: TextDirection.rtl,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -40,6 +81,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
+
     ThemeData selectedTheme;
     switch (themeProvider.theme) {
       case AppTheme.light:
