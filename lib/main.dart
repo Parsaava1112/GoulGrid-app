@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite_common/sqlite_api.dart' show databaseFactory;
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -17,15 +18,13 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-<<<<<<< HEAD
-  // ---------- تنظیم دیتابیس برای دسکتاپ ----------
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();               // راه‌اندازی FFI
-    databaseFactory = databaseFactoryFfi;  // استفاده از فکتوری مناسب
-  }
-  // ------------------------------------------------
-
   try {
+    // تنظیم دیتابیس برای دسکتاپ
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     // تنظیم منطقه زمانی
     tz.initializeTimeZones();
     try {
@@ -40,35 +39,6 @@ void main() async {
       await DatabaseHelper.instance.database;
     } catch (e) {
       debugPrint('Database init failed: $e');
-    }
-
-    // سرویس اعلان
-    try {
-      await NotificationService.instance.init();
-    } catch (e) {
-      debugPrint('Notification init failed: $e');
-    }
-
-    final themeProvider = ThemeProvider();
-    await themeProvider.loadTheme();
-
-=======
-  try {
-    // تنظیم منطقه زمانی
-    tz.initializeTimeZones();
-    try {
-      tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
-    } catch (e) {
-      debugPrint('Warning: Could not set Tehran timezone, using UTC: $e');
-      tz.setLocalLocation(tz.UTC);
-    }
-
-    // دیتابیس
-    try {
-      await DatabaseHelper.instance.database;
-    } catch (e) {
-      debugPrint('Database init failed: $e');
-      // ادامه می‌دهیم؛ ممکن است بعداً خطا دهد اما برنامه باز می‌شود
     }
 
     // سرویس اعلان
@@ -80,10 +50,13 @@ void main() async {
 
     // تم
     final themeProvider = ThemeProvider();
-    await themeProvider.loadTheme();
+    try {
+      await themeProvider.loadTheme();
+    } catch (e) {
+      debugPrint('Theme loading failed: $e');
+    }
 
     // اجرای برنامه
->>>>>>> af59ad712f12193faffea563dffa3c3f07d88668
     runApp(
       MultiProvider(
         providers: [
@@ -94,13 +67,10 @@ void main() async {
       ),
     );
   } catch (e) {
-<<<<<<< HEAD
-=======
-    // اگر خطای بحرانی در راه‌اندازی رخ داد، صفحه خطا نمایش بده
->>>>>>> af59ad712f12193faffea563dffa3c3f07d88668
     debugPrint('Fatal error during startup: $e');
     runApp(
       MaterialApp(
+        debugShowCheckedModeBanner: false,
         home: Scaffold(
           body: Center(
             child: Padding(
@@ -125,18 +95,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
 
-    ThemeData selectedTheme;
-    switch (themeProvider.theme) {
-      case AppTheme.light:
-        selectedTheme = lightTheme;
-        break;
-      case AppTheme.amoled:
-        selectedTheme = amoledTheme;
-        break;
-      case AppTheme.dark:
-      default:
-        selectedTheme = darkTheme;
-    }
+    final selectedDarkTheme = themeProvider.theme == AppTheme.amoled
+        ? amoledTheme
+        : darkTheme;
 
     return MaterialApp(
       title: 'مدیریت تسک و عادت',
@@ -148,9 +109,9 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      theme: lightTheme,
+      darkTheme: selectedDarkTheme,
       themeMode: themeProvider.isDark ? ThemeMode.dark : ThemeMode.light,
-      darkTheme: selectedTheme,
-      theme: selectedTheme,
       home: const HomeScreen(),
     );
   }
