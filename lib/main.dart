@@ -17,6 +17,7 @@ import 'theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+<<<<<<< HEAD
   // ---------- تنظیم دیتابیس برای دسکتاپ ----------
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();               // راه‌اندازی FFI
@@ -51,6 +52,38 @@ void main() async {
     final themeProvider = ThemeProvider();
     await themeProvider.loadTheme();
 
+=======
+  try {
+    // تنظیم منطقه زمانی
+    tz.initializeTimeZones();
+    try {
+      tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
+    } catch (e) {
+      debugPrint('Warning: Could not set Tehran timezone, using UTC: $e');
+      tz.setLocalLocation(tz.UTC);
+    }
+
+    // دیتابیس
+    try {
+      await DatabaseHelper.instance.database;
+    } catch (e) {
+      debugPrint('Database init failed: $e');
+      // ادامه می‌دهیم؛ ممکن است بعداً خطا دهد اما برنامه باز می‌شود
+    }
+
+    // سرویس اعلان
+    try {
+      await NotificationService.instance.init();
+    } catch (e) {
+      debugPrint('Notification init failed: $e');
+    }
+
+    // تم
+    final themeProvider = ThemeProvider();
+    await themeProvider.loadTheme();
+
+    // اجرای برنامه
+>>>>>>> af59ad712f12193faffea563dffa3c3f07d88668
     runApp(
       MultiProvider(
         providers: [
@@ -61,6 +94,10 @@ void main() async {
       ),
     );
   } catch (e) {
+<<<<<<< HEAD
+=======
+    // اگر خطای بحرانی در راه‌اندازی رخ داد، صفحه خطا نمایش بده
+>>>>>>> af59ad712f12193faffea563dffa3c3f07d88668
     debugPrint('Fatal error during startup: $e');
     runApp(
       MaterialApp(
