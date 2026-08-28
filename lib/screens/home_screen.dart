@@ -22,6 +22,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+
+    // بارگذاری داده‌ها پس از ساخته شدن صفحه
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<TaskProvider>().ensureLoaded();
+    });
   }
 
   @override
