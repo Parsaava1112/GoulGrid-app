@@ -12,15 +12,10 @@ import 'services/theme_provider.dart';
 import 'services/task_provider.dart';
 import 'theme/app_theme.dart';
 
-// برای پشتیبانی از دسکتاپ، فقط در صورت نیاز
-import 'dart:io' show Platform;
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'
-    if (dart.library.io) 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // تنظیم منطقه زمانی
+  // تنظیم منطقه زمانی بدون blocking
   tz.initializeTimeZones();
   try {
     tz.setLocalLocation(tz.getLocation('Asia/Tehran'));
@@ -28,48 +23,7 @@ void main() async {
     tz.setLocalLocation(tz.UTC);
   }
 
-  // تنظیم دیتابیس برای دسکتاپ (در اندروید اجرا نمی‌شود)
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-  }
-
-  // اجرای برنامه با مدیریت خطا
-  runZonedGuarded(() async {
-    try {
-      await DatabaseHelper.instance.database;
-    } catch (e) {
-      // اگر دیتابیس خطا داد، ادامه می‌دهیم
-    }
-
-    try {
-      await NotificationService.instance.init();
-    } catch (e) {
-      // اگر اعلان خطا داد، ادامه می‌دهیم
-    }
-
-    final themeProvider = ThemeProvider();
-    await themeProvider.loadTheme();
-
-    runApp(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => themeProvider),
-          ChangeNotifierProvider(create: (_) => TaskProvider()..loadData()),
-        ],
-        child: const MyApp(),
-      ),
-    );
-  }, (error, stackTrace) {
-    // خطای سراسری – فقط چاپ می‌کنیم
-    debugPrint('Uncaught error: $error');
-    debugPrint('Stack trace: $stackTrace');
-  });
-
-  // خطاهای فریم‌ورک
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details); // در debug نمایش داده شود
-  };
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -77,35 +31,31 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeProvider = context.watch<ThemeProvider>();
-
-    ThemeData selectedTheme;
-    switch (themeProvider.theme) {
-      case AppTheme.light:
-        selectedTheme = lightTheme;
-        break;
-      case AppTheme.amoled:
-        selectedTheme = amoledTheme;
-        break;
-      case AppTheme.dark:
-      default:
-        selectedTheme = darkTheme;
-    }
-
-    return MaterialApp(
-      title: 'مدیریت تسک و عادت',
-      debugShowCheckedModeBanner: false,
-      locale: const Locale('fa'),
-      supportedLocales: const [Locale('fa')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+    // بارگذاری اولیه تم و داده‌ها را به تعویق می‌اندازیم
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()..loadTheme()),
+        ChangeNotifierProvider(create: (_) => TaskProvider()),
       ],
-      themeMode: themeProvider.isDark ? ThemeMode.dark : ThemeMode.light,
-      darkTheme: selectedTheme,
-      theme: selectedTheme,
-      home: const HomeScreen(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) {
+          return MaterialApp(
+            title: 'مدیریت تسک و عادت',
+            debugShowCheckedModeBanner: false,
+            locale: const Locale('fa'),
+            supportedLocales: const [Locale('fa')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            themeMode: themeProvider.isDark ? ThemeMode.dark : ThemeMode.light,
+            darkTheme: darkTheme,
+            theme: lightTheme,
+            home: const HomeScreen(),
+          );
+        },
+      ),
     );
   }
 }
