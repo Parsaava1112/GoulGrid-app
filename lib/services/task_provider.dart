@@ -17,6 +17,7 @@ class TaskProvider extends ChangeNotifier {
   int _currentStreak = 0;
   int _bestStreak = 0;
   int _unlockedBadges = 0;
+  bool _isLoaded = false;
 
   List<Task> get tasks => _tasks;
   Set<int> get completedToday => _completedToday;
@@ -33,6 +34,14 @@ class TaskProvider extends ChangeNotifier {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  /// بارگذاری داده‌ها فقط یک بار انجام می‌شود
+  Future<void> ensureLoaded() async {
+    if (_isLoaded) return;
+    _isLoaded = true;
+    await loadData();
+  }
+
+  /// بارگذاری کامل داده‌ها از دیتابیس
   Future<void> loadData() async {
     _loading = true;
     notifyListeners();
@@ -63,6 +72,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  /// زمان‌بندی مجدد اعلان‌ها برای همه تسک‌ها
   Future<void> _rescheduleAll() async {
     for (final task in _tasks) {
       try {
@@ -73,6 +83,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  /// افزودن تسک جدید
   Future<void> addTask(Task task) async {
     try {
       final id = await _db.insertTask(task);
@@ -80,11 +91,10 @@ class TaskProvider extends ChangeNotifier {
       _tasks.add(newTask);
       notifyListeners();
 
-      // زمان‌بندی اعلان - خطای آن ذخیره‌سازی را خراب نمی‌کند
       try {
         await NotificationService.instance.scheduleTaskNotification(newTask);
       } catch (e) {
-        debugPrint('Error scheduling notification for task $id: $e');
+        debugPrint('Error scheduling notification for new task $id: $e');
       }
     } catch (e) {
       debugPrint('Error adding task: $e');
@@ -92,6 +102,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  /// ویرایش تسک
   Future<void> updateTask(Task task) async {
     try {
       await _db.updateTask(task);
@@ -110,6 +121,7 @@ class TaskProvider extends ChangeNotifier {
     }
   }
 
+  /// حذف تسک
   Future<void> deleteTask(int id) async {
     await _db.deleteTask(id);
     _tasks.removeWhere((t) => t.id == id);
@@ -122,6 +134,7 @@ class TaskProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// تکمیل تسک و ثبت امتیاز
   Future<bool> completeTask(int taskId, bool verified) async {
     if (!verified || _completedToday.contains(taskId)) return false;
 
@@ -141,6 +154,7 @@ class TaskProvider extends ChangeNotifier {
     _todayPoints += 50;
     _totalPoints += 50;
 
+    // اگر همه تسک‌ها انجام شده باشند و بونوس امروز داده نشده باشد
     final allDone = _tasks.every((task) => _completedToday.contains(task.id));
     if (allDone && !_bonusEarnedToday && _tasks.isNotEmpty) {
       await _db.addPoints(date, 100, bonus: true);
@@ -149,16 +163,20 @@ class TaskProvider extends ChangeNotifier {
       _bonusEarnedToday = true;
     }
 
+    // به‌روزرسانی استریک
     await _db.updateStreak(date, _completedToday.length, _tasks.length);
     final streakInfo = await _db.getStreakInfo();
     _currentStreak = streakInfo['current'] as int;
     _bestStreak = streakInfo['best'] as int;
 
+    // بررسی باز شدن نشان‌ها
     await _checkAndUnlockBadges();
+
     notifyListeners();
     return true;
   }
 
+  /// بررسی و باز کردن نشان‌های جدید
   Future<void> _checkAndUnlockBadges() async {
     try {
       if (_totalPoints > 0) await _db.unlockBadge('first_task');
